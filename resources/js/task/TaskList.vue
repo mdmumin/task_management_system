@@ -17,10 +17,14 @@
                                 <button type="button" class="btn btn-outline-secondary" @click="clearSearch">Clear</button>
                             </form>
 
-                            <router-link to="/task-create" class="btn btn-primary">Create Task</router-link>
+                            <router-link to="/task-create" class="btn btn-primary btn-sm">Create Task</router-link>
                         </div>
                     </div>            
                     <div class="card-body">
+                        <div v-if="successMessage" class="alert alert-success" role="alert">
+                            {{ successMessage }}
+                        </div>
+
                         <table class="table">
                             <thead>
                                 <tr>
@@ -32,7 +36,7 @@
                                     <th scope="col">Status</th>
                                     <th scope="col">Start Date</th>
                                     <th scope="col">End Date</th>
-                                    <th scope="col">Actions</th>
+                                    <th class="col-2 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -43,7 +47,7 @@
                                     <th scope="row">{{ startIndex + index + 1 }}</th>
                                     <td>{{ task.title }}</td>
                                     <td>{{ task.description || '-' }}</td>
-                                    <td>{{ task.assigned_to || 'Unassigned' }}</td>
+                                    <td>{{ task.assigned_user?.name || task.assigned_to || 'Unassigned' }}</td>
                                     <td>{{ task.priority }}</td>
                                     <td>
                                         <select
@@ -61,7 +65,9 @@
                                     <td>{{ task.end_date || '-' }}</td>
                                     <td>
                                         <router-link :to="`/task-edit/${task.id}`" class="btn btn-sm btn-outline-primary">Edit</router-link>
+                                        &nbsp;
                                         <router-link :to="`/task-detail/${task.id}`" class="btn btn-sm btn-outline-secondary">View</router-link>
+                                        &nbsp;
                                         <button class="btn btn-sm btn-outline-danger" @click="deleteTask(task.id)">Delete</button>
                                     </td>
                                 </tr>
@@ -108,13 +114,44 @@ export default {
             currentPage: 1,
             perPage: 10,
             totalPages: 1,
-            totalTasks: 0
+            totalTasks: 0,
+            successMessage: '',
+            successMessageTimer: null,
         };
     },
     mounted() {
+        const routeMessage = this.$route.query?.success;
+        if (routeMessage) {
+            this.showSuccessMessage(routeMessage);
+            this.$router.replace({
+                path: this.$route.path,
+                query: {
+                    ...this.$route.query,
+                    success: undefined,
+                },
+            });
+        }
+
         this.fetchTasks();
     },
+    beforeUnmount() {
+        if (this.successMessageTimer) {
+            clearTimeout(this.successMessageTimer);
+        }
+    },
     methods: {
+        showSuccessMessage(message) {
+            this.successMessage = message;
+
+            if (this.successMessageTimer) {
+                clearTimeout(this.successMessageTimer);
+            }
+
+            this.successMessageTimer = setTimeout(() => {
+                this.successMessage = '';
+                this.successMessageTimer = null;
+            }, 3000);
+        },
         fetchTasks(page = 1) {
             axios.get('/api/tasks', {
                 params: {
@@ -158,6 +195,8 @@ export default {
 
             axios.delete(`/api/tasks/${id}`)
                 .then(() => {
+                    this.showSuccessMessage('Task deleted successfully.');
+
                     if (this.tasks.length === 1 && this.currentPage > 1) {
                         this.fetchTasks(this.currentPage - 1);
                         return;
@@ -174,6 +213,7 @@ export default {
                 status: task.status,
             })
                 .then(() => {
+                    this.showSuccessMessage('Task status updated successfully.');
                     this.fetchTasks(this.currentPage);
                 })
                 .catch(error => {

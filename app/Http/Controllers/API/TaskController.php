@@ -15,7 +15,9 @@ class TaskController extends Controller
     {
         $search = $request->query('search');
 
-        $query = Task::query()->orderByDesc('id');
+        $query = Task::query()
+            ->with('assignedUser:id,name')
+            ->orderByDesc('id');
 
         if ($search) {
             $query->where('title', 'like', '%' . $search . '%');
@@ -41,6 +43,8 @@ class TaskController extends Controller
     public function store(Request $request)
     {
         $task = Task::create($request->all());
+        $task->load('assignedUser:id,name');
+
         return response()->json(['message' => 'Task created successfully', 'data' => $task], 201);
     }
 
@@ -49,7 +53,8 @@ class TaskController extends Controller
      */
     public function show(string $id)
     {
-        $task = Task::findOrFail($id);
+        $task = Task::with('assignedUser:id,name')->findOrFail($id);
+
         return response()->json(['message' => 'Task found', 'data' => $task]);
     }
 
@@ -60,6 +65,8 @@ class TaskController extends Controller
     {
         $task = Task::findOrFail($id);
         $task->update($request->all());
+        $task->load('assignedUser:id,name');
+
         return response()->json(['message' => 'Task updated successfully', 'data' => $task]);
     }
 

@@ -3,9 +3,10 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header">
-                        <router-link to="/task-list" class="btn btn-primary">Task List</router-link>
-                    </div>            
+                    <div class="card-header d-flex justify-content-between align-items-center">
+						<h5 class="mb-0">Create Task</h5>
+                        <router-link to="/task-list" class="btn btn-primary btn-sm">Back To List</router-link>
+					</div>           
                     <div class="card-body">
                         <form @submit.prevent="createTask">
                             <div class="mb-3">
@@ -20,7 +21,12 @@
 
                             <div class="mb-3">
                                 <label for="assigned_to" class="form-label">Assigned To</label>
-                                <input id="assigned_to" v-model="task.assigned_to" type="text" class="form-control" placeholder="Leave empty for unassigned">
+                                <select id="assigned_to" v-model="task.assigned_to" class="form-control">
+                                    <option value="">Unassigned</option>
+                                    <option v-for="user in users" :key="user.id" :value="String(user.id)">
+                                        {{ user.name }}
+                                    </option>
+                                </select>
                             </div>
 
                             <div class="row">
@@ -46,12 +52,12 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="start_date" class="form-label">Start Date</label>
-                                    <input id="start_date" v-model="task.start_date" type="datetime-local" class="form-control" @change="syncEndDateWithStartDate">
+                                    <input id="start_date" v-model="task.start_date" type="datetime-local" class="form-control" :min="todayMinDateTime" @change="syncEndDateWithStartDate">
                                 </div>
 
                                 <div class="col-md-6 mb-3">
                                     <label for="end_date" class="form-label">End Date</label>
-                                    <input id="end_date" v-model="task.end_date" type="datetime-local" class="form-control" :min="task.start_date || null">
+                                    <input id="end_date" v-model="task.end_date" type="datetime-local" class="form-control" :min="task.start_date || todayMinDateTime">
                                 </div>
                             </div>
 
@@ -87,12 +93,47 @@ export default {
                 end_date: ''
             },
             loading: false,
+            users: [],
             errorMessage: ''
         };
     },
+    mounted() {
+        this.fetchUsers();
+    },
+    computed: {
+        todayMinDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+    },
     methods: {
+        fetchUsers() {
+            axios.get('/api/users')
+                .then((response) => {
+                    this.users = response.data.data ?? [];
+                })
+                .catch(() => {
+                    this.errorMessage = 'Failed to load users for assignment.';
+                });
+        },
         createTask() {
             this.errorMessage = '';
+
+            if (!this.isOnOrAfterToday(this.task.start_date)) {
+                this.errorMessage = 'Start Date must be today or a future date.';
+                return;
+            }
+
+            if (!this.isOnOrAfterToday(this.task.end_date)) {
+                this.errorMessage = 'End Date must be today or a future date.';
+                return;
+            }
 
             if (!this.isValidDateRange()) {
                 this.errorMessage = 'End Date cannot be earlier than Start Date.';
@@ -110,10 +151,15 @@ export default {
 
             axios.post('/api/tasks', payload)
                 .then(() => {
-                    this.$router.push('/task-list');
+                    this.$router.push({
+                        path: '/task-list',
+                        query: {
+                            success: 'Task created successfully.',
+                        },
+                    });
                 })
                 .catch((error) => {
-                    this.errorMessage = error?.response?.data?.message || 'Failed to create task.';
+                    this.errorMessage = this.extractErrorMessage(error);
                 })
                 .finally(() => {
                     this.loading = false;
@@ -125,6 +171,30 @@ export default {
             }
 
             return new Date(this.task.end_date) >= new Date(this.task.start_date);
+        },
+        isOnOrAfterToday(value) {
+            if (!value) {
+                return true;
+            }
+
+            const selectedDateTime = new Date(value);
+            const now = new Date();
+
+            return selectedDateTime >= now;
+        },
+        extractErrorMessage(error) {
+            const responseData = error?.response?.data;
+            const validationErrors = responseData?.errors;
+
+            if (validationErrors && typeof validationErrors === 'object') {
+                const firstErrorGroup = Object.values(validationErrors)[0];
+
+                if (Array.isArray(firstErrorGroup) && firstErrorGroup.length > 0) {
+                    return firstErrorGroup[0];
+                }
+            }
+
+            return responseData?.message || 'Failed to create task.';
         },
         syncEndDateWithStartDate() {
             if (!this.isValidDateRange()) {

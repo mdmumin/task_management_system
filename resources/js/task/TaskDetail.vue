@@ -23,7 +23,7 @@
 								</tr>
 								<tr>
 									<th>Assigned To</th>
-									<td>{{ task.assigned_to || 'Unassigned' }}</td>
+									<td>{{ task.assigned_user?.name || task.assigned_to || 'Unassigned' }}</td>
 								</tr>
 								<tr>
 									<th>Priority</th>

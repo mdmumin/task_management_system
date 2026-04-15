@@ -24,7 +24,12 @@
 
 							<div class="mb-3">
 								<label for="assigned_to" class="form-label">Assigned To</label>
-								<input id="assigned_to" v-model="task.assigned_to" type="text" class="form-control" placeholder="Leave empty for unassigned">
+								<select id="assigned_to" v-model="task.assigned_to" class="form-control">
+									<option value="">Unassigned</option>
+									<option v-for="user in users" :key="user.id" :value="String(user.id)">
+										{{ user.name }}
+									</option>
+								</select>
 							</div>
 
 							<div class="row">
@@ -91,6 +96,7 @@ export default {
 				start_date: '',
 				end_date: ''
 			},
+			users: [],
 			loading: true,
 			saving: false,
 			loadError: '',
@@ -98,9 +104,19 @@ export default {
 		};
 	},
 	mounted() {
+		this.fetchUsers();
 		this.fetchTask();
 	},
 	methods: {
+		fetchUsers() {
+			axios.get('/api/users')
+				.then((response) => {
+					this.users = response.data.data ?? [];
+				})
+				.catch(() => {
+					this.errorMessage = 'Failed to load users for assignment.';
+				});
+		},
 		fetchTask() {
 			const id = this.$route.params.id;
 
@@ -111,7 +127,7 @@ export default {
 					this.task = {
 						title: task.title || '',
 						description: task.description || '',
-						assigned_to: task.assigned_to || '',
+						assigned_to: task.assigned_to ? String(task.assigned_to) : '',
 						priority: task.priority || 'medium',
 						status: task.status || 'pending',
 						start_date: this.formatForDatetimeLocal(task.start_date),
@@ -164,7 +180,12 @@ export default {
 
 			axios.put(`/api/tasks/${id}`, payload)
 				.then(() => {
-					this.$router.push('/task-list');
+					this.$router.push({
+						path: '/task-list',
+						query: {
+							success: 'Task updated successfully.',
+						},
+					});
 				})
 				.catch((error) => {
 					this.errorMessage = error?.response?.data?.message || 'Failed to update task.';
