@@ -4,6 +4,7 @@ import TaskEdit from '../task/TaskEdit.vue'
 import TaskList from '../task/TaskList.vue'
 import TaskDetail from '../task/TaskDetail.vue'
 const routes = [
+    { path: '/', name: 'Home', component: TaskList },
     { path: '/task-create', name: 'TaskCreate', component: TaskCreate },
     { path: '/task-edit/:id', name: 'TaskEdit', component: TaskEdit },
     { path: '/task-list', name: 'TaskList', component: TaskList },
